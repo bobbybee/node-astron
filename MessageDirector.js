@@ -2,6 +2,7 @@ var net = require('net');
 var Packet = require("./Packet").Packet;
 var OutPacket = require("./Packet").OutPacket;
 
+var msgtypes = require("./msgtypes");
 
 function MessageDirector(ip, port) {
     this.ip = ip;
@@ -27,7 +28,7 @@ MessageDirector.prototype.onConnect = function() {
     this.socket.on('end', this.onEnd);
 }
 
-MessageDirector.prototype.onData = function(d) {
+MessageDirector.prototype.onData = function(d) {    
     var packet = new Packet(d);
     packet.readMDHeader();
     
@@ -41,7 +42,28 @@ MessageDirector.prototype.onEnd = function() {
 }
 
 MessageDirector.prototype.write = function(dgram) {
-    this.socket.write(dgram);
+    this.socket.write(dgram.serialize());
+}
+
+MessageDirector.prototype.setName = function(name) {
+    var packet = new OutPacket();
+    packet.writeMDHeader([1], msgtypes.CONTROL_SET_CON_NAME);
+    packet.writeString(name);
+    this.write(packet);
+}
+
+MessageDirector.prototype.addChannel = function(channel) {
+    var packet = new OutPacket();
+    packet.writeMDHeader([1], msgtypes.CONTROL_ADD_CHANNEL);
+    packet.writeUInt64(channel);
+    this.write(packet);
+}
+
+MessageDirector.prototype.removeChannel = function(channel) {
+    var packet = new OutPacket();
+    packet.writeMDHeader([1], msgtypes.CONTROL_REMOVE_CHANNEL);
+    packet.writeUInt64(channel);
+    this.write(packet);
 }
 
 module.exports = MessageDirector;
