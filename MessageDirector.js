@@ -37,17 +37,13 @@ MessageDirector.prototype.onConnect = function() {
     });
 }
 
-MessageDirector.prototype.onData = function(d) {    
+MessageDirector.prototype.onData = function(d) {
     var packet = new Packet(d);
     packet.readMDHeader();
-    
-    console.log(this.channels);
     
     for(var i = 0; i < packet.recipients.length; ++i) {
         this.channels[packet.recipients[i]].handleDatagram(packet);
     }
-    
-    console.log(packet.sender);
 }
 
 MessageDirector.prototype.onEnd = function() {
@@ -58,7 +54,7 @@ MessageDirector.prototype.write = function(dgram) {
     this.socket.write(dgram.serialize());
 }
 
-var MD_CONTROL = [1];
+var MD_CONTROL = 1;
 
 MessageDirector.prototype.setName = function(name) {
     var packet = new OutPacket();
@@ -73,9 +69,7 @@ MessageDirector.prototype.addChannel = function(channel, controller) {
     packet.writeUInt64(channel);
     this.write(packet);
     
-    console.log(channel+","+controller);
     this.channels[channel] = controller;
-    console.log(this.channels);
 }
 
 MessageDirector.prototype.removeChannel = function(channel) {

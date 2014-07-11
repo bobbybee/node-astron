@@ -1,4 +1,4 @@
-var Int64 = require('node-int64'); // needed for accurate arithmetic
+var bignum = require('bignum'); // needed for accurate arithmetic
 
 function Packet(buf){
     this.buf = buf;
@@ -7,15 +7,15 @@ function Packet(buf){
     this.length = this.readUInt16();
 }
 
-Packet.prototype.readUInt8 = function(){ this.offset += 1; return this.buf.readUInt8(this.offset-1); };
-Packet.prototype.readUInt16 = function(){ this.offset += 2; return this.buf.readUInt16LE(this.offset-2); };
-Packet.prototype.readUInt32 = function(){ this.offset += 4; return this.buf.readUInt32LE(this.offset-4); };
-Packet.prototype.readUInt64 = function(){ var bigint = new Int64(0); bigint |= this.readUInt32(); bigint |= (this.readUInt32()) << 32; return bigint };
-Packet.prototype.readInt8 = function(){ this.offset += 1; return this.buf.readInt8(this.offset-1); };
-Packet.prototype.readInt16 = function(){ this.offset += 2; return this.buf.readInt16LE(this.offset-2); };
-Packet.prototype.readInt32 = function(){ this.offset += 4; return this.buf.readInt32LE(this.offset-4); };
-Packet.prototype.readInt64 = function(){ this.offset += 8; return this.buf.readUInt32LE(this.offset-8) | (this.buf.readInt32LE(this.offset-4) << 32)};
-Packet.prototype.readBlob = function(l){ var b = new Buffer(l); this.buf.copy(b, 0, this.offset, this.offset+l); this.offset+=l; return b};
+Packet.prototype.readUInt8 = function(){ this.offset += 1; if(this.offset>this.length)return 0; return this.buf.readUInt8(this.offset-1); };
+Packet.prototype.readUInt16 = function(){ this.offset += 2; if(this.offset>this.length)return 0; return this.buf.readUInt16LE(this.offset-2); };
+Packet.prototype.readUInt32 = function(){ this.offset += 4; if(this.offset>this.length)return 0; return this.buf.readUInt32LE(this.offset-4); };
+Packet.prototype.readUInt64 = function(){ this.offset += 8; if(this.offset>this.length)return 0; return bignum(this.buf.readUInt32LE(this.offset-4)).shiftLeft(32).or(this.buf.readUInt32LE(this.offset-8)); };
+Packet.prototype.readInt8 = function(){ this.offset += 1; if(this.offset>this.length)return 0; return this.buf.readInt8(this.offset-1); };
+Packet.prototype.readInt16 = function(){ this.offset += 2; if(this.offset>this.length)return 0; return this.buf.readInt16LE(this.offset-2); };
+Packet.prototype.readInt32 = function(){ this.offset += 4; if(this.offset>this.length)return 0; return this.buf.readInt32LE(this.offset-4); };
+Packet.prototype.readInt64 = function(){ console.log("int64 read not supported"); };
+Packet.prototype.readBlob = function(l){ if(this.offset+l > this.length) return null; var b = new Buffer(l); this.buf.copy(b, 0, this.offset, this.offset+l); this.offset+=l; return b};
 Packet.prototype.readString = function(){ return this.readBlob(this.readUInt16()).toString(); }
 
 Packet.prototype.readClientHeader = function(){ this.msgType = this.readUInt16(); };
@@ -39,7 +39,7 @@ function OutPacket(){
 OutPacket.prototype.writeUInt8 = function(b){ this.buf.push(b & 0xFF); };
 OutPacket.prototype.writeUInt16 = function(b){ this.writeUInt8(b & 0xFF); this.writeUInt8((b >> 8) & 0xFF); };
 OutPacket.prototype.writeUInt32 = function(b){ this.writeUInt16(b & 0xFFFF); this.writeUInt16((b >> 16) & 0xFFFF); };
-OutPacket.prototype.writeUInt64 = function(b){ /*var bigInt = new Int64(b); this.writeUInt32(bigInt & 0x00000000FFFFFFFF); this.writeUInt32(bigInt & 0xFFFFFFFF00000000);*/ this.writeUInt32(b); this.writeUInt32(0); /* todo: proper 64-bit arithmetic  */};
+OutPacket.prototype.writeUInt64 = function(b){ b = bignum(b);  this.writeUInt32(b.and(0xFFFFFFFF)); this.writeUInt32(b.shiftRight(32));  };
 OutPacket.prototype.writeInt8 = function(b){ this.writeUInt8(b); }; // write sign is a semantic issue, actually
 OutPacket.prototype.writeInt16 = function(b){ this.writeUInt16(b); };
 OutPacket.prototype.writeInt32 = function(b){ this.writeUInt32(b); };
@@ -49,7 +49,9 @@ OutPacket.prototype.writeString = function(str){ this.writeUInt16(str.length); t
 
 OutPacket.prototype.writeClientHeader = function(msgtype){ this.writeUInt16(msgtype); };
 OutPacket.prototype.writeMDHeader = function(recipients, msgtype, sender){
-	this.writeUInt8(recipients.length);
+	if(!Array.isArray(recipients)) recipients = [recipients];
+    
+    this.writeUInt8(recipients.length);
 	var i = 0;
 	while(i < recipients.length){
 		this.writeUInt64(recipients[i++]);
