@@ -100,11 +100,16 @@ DistributedClass.prototype.serialize = function(out, requiredMods){
     
 };
 
-DistributedClass.prototype.unpack = function(in_t, optionalsEnabled) {
+DistributedClass.prototype.unpack = function(in_t, optionalsEnabled, requiredFields) {
+    if(!requiredFields) requiredFields = [];
     var attrs = this.class[2];
     
-    for(var r = 0; r < attrs.length; ++r) {
+    nextField: for(var r = 0; r < attrs.length; ++r) {
         if(attrs[r][2].indexOf('required') > -1) {
+            for(var f = 0; f < requiredFields.length; ++f) {
+                if(attrs[r][2].indexOf(requiredFields[f]) == -1) continue nextField;
+            }
+            
             var ps = [];
             
             for(var a = 0; a < attrs[r][3].length; ++a) {
@@ -121,16 +126,25 @@ DistributedClass.prototype.unpack = function(in_t, optionalsEnabled) {
         for(var i = 0; i < numOptionals; ++i) {
            var field_id = in_t.readUInt16();
            
-           var field = DCFile.fieldLookup[field_id];
-           
-           var ps = [];
-           
-           for(var a = 0; a < field[4].length; ++a) {
-               ps.push(unserializeToken(in_t, field[4][a]));
-           } 
-           
-           this.properties[field[2]] = ps;
+           this.unpackField(in_t, field_id);
         }
+    }
+}
+
+DistributedClass.prototype.unpackField = function(in_t, field_id) {
+    var field = DCFile.fieldLookup[field_id];
+
+    var ps = [];
+    
+    for(var a = 0; a < field[4].length; ++a) {
+        ps.push(unserializeToken(in_t, field[4][a]));
+    } 
+    
+    this.properties[field[2]] = ps;
+    
+    return {
+        name: field[2],
+        value: ps
     }
 }
 

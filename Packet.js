@@ -3,19 +3,19 @@ var bignum = require('bignum'); // needed for accurate arithmetic
 function Packet(buf){
     this.buf = buf;
     this.offset = 0;
-    
     this.length = this.readUInt16();
+    
 }
 
-Packet.prototype.readUInt8 = function(){ this.offset += 1; if(this.offset>this.length)return 0; return this.buf.readUInt8(this.offset-1); };
-Packet.prototype.readUInt16 = function(){ this.offset += 2; if(this.offset>this.length)return 0; return this.buf.readUInt16LE(this.offset-2); };
-Packet.prototype.readUInt32 = function(){ this.offset += 4; if(this.offset>this.length)return 0; return this.buf.readUInt32LE(this.offset-4); };
-Packet.prototype.readUInt64 = function(){ this.offset += 8; if(this.offset>this.length)return 0; return bignum(this.buf.readUInt32LE(this.offset-4)).shiftLeft(32).or(this.buf.readUInt32LE(this.offset-8)); };
-Packet.prototype.readInt8 = function(){ this.offset += 1; if(this.offset>this.length)return 0; return this.buf.readInt8(this.offset-1); };
-Packet.prototype.readInt16 = function(){ this.offset += 2; if(this.offset>this.length)return 0; return this.buf.readInt16LE(this.offset-2); };
-Packet.prototype.readInt32 = function(){ this.offset += 4; if(this.offset>this.length)return 0; return this.buf.readInt32LE(this.offset-4); };
-Packet.prototype.readInt64 = function(){ console.log("int64 read not supported"); };
-Packet.prototype.readBlob = function(l){ if(this.offset+l > this.length) return null; var b = new Buffer(l); this.buf.copy(b, 0, this.offset, this.offset+l); this.offset+=l; return b};
+Packet.prototype.readUInt8 = function(){ this.offset += 1; if(this.offset-2>this.length)return 0; return this.buf.readUInt8(this.offset-1); };
+Packet.prototype.readUInt16 = function(){ this.offset += 2; if(this.offset-2>this.length)return 0; return this.buf.readUInt16LE(this.offset-2); };
+Packet.prototype.readUInt32 = function(){ this.offset += 4; if(this.offset-2>this.length)return 0; return this.buf.readUInt32LE(this.offset-4); };
+Packet.prototype.readUInt64 = function(){ this.offset += 8; if(this.offset-2>this.length)return 0; return bignum(this.buf.readUInt32LE(this.offset-4)).shiftLeft(32).or(this.buf.readUInt32LE(this.offset-8)); };
+Packet.prototype.readInt8 = function(){ this.offset += 1; if(this.offset-2>this.length)return 0; return this.buf.readInt8(this.offset-1); };
+Packet.prototype.readInt16 = function(){ this.offset += 2; if(this.offset-2>this.length)return 0; return this.buf.readInt16LE(this.offset-2); };
+Packet.prototype.readInt32 = function(){ this.offset += 4; if(this.offset-2>this.length)return 0; return this.buf.readInt32LE(this.offset-4); };
+Packet.prototype.readInt64 = function(){ this.offset += 8; console.log("int64 read not supported"); };
+Packet.prototype.readBlob = function(l){ this.offset+=l; if(this.offset-2 > this.length) return null; var b = new Buffer(l); this.buf.copy(b, 0, this.offset, this.offset+l);  return b};
 Packet.prototype.readString = function(){ return this.readBlob(this.readUInt16()).toString(); }
 
 Packet.prototype.readClientHeader = function(){ this.msgType = this.readUInt16(); };
