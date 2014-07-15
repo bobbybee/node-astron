@@ -131,7 +131,7 @@ DistributedClass.prototype.unpack = function(in_t, optionalsEnabled, requiredFie
     }
 }
 
-DistributedClass.prototype.unpackField = function(in_t, field_id) {
+DistributedClass.prototype.unpackField = function(in_t, field_id) {    
     var field = DCFile.fieldLookup[field_id];
 
     var ps = [];

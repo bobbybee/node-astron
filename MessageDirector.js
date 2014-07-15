@@ -40,7 +40,7 @@ MessageDirector.prototype.onConnect = function() {
 MessageDirector.prototype.onData = function(d) {
     var packet = new Packet(d);
     packet.readMDHeader();
-        
+            
     nextRecipient: for(var i = 0; i < packet.recipients.length; ++i) {
         if(!this.channels[packet.recipients[i]]) {
             continue nextRecipient; // message was not intended for us, move on

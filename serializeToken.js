@@ -3,6 +3,8 @@ var DCFile = require("./DCFile");
 function serializeToken(out, type, val){
     type = type.trim();
     
+    if(type.split(" ").length == 2) type = type.split(" ")[0];
+    
     if(type[type.length-1] == ']') { // arrays have there own little implementation
         // array type
         

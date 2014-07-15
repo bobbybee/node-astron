@@ -6,11 +6,16 @@ var msgtypes = require("./msgtypes");
 var DistributedClass = require("./DistributedClass");
 var DCFile = require("./DCFile");
 
+var DOManager = require("./DOManager");
+
 function StateServer(channel) {
     this.channel = channel;
 }
 
-var distributedObjs = {}; // TODO: PROPER TRACKING
+StateServer.prototype.reflectCreate = function(class_t, zone) {
+    var obj = new DistributedClass(class_t, zone);
+    DOManager.doID2do[this.channel] = obj;
+}
 
 StateServer.prototype.handleDatagram = function(dgram) {
         
@@ -25,7 +30,7 @@ StateServer.prototype.handleDatagram = function(dgram) {
             var obj = new DistributedClass(DCFile.DCFile[dclass_id][1],zone_id);
             obj.unpack(dgram, false);
             
-            distributedObjs[do_id] = obj;
+            DOManager.doID2do[do_id] = obj;
             
             console.log("-----");
             console.log("New object");
@@ -46,7 +51,7 @@ StateServer.prototype.handleDatagram = function(dgram) {
             var obj = new DistributedClass(DCFile.DCFile[dclass_id][1],zone_id);
             obj.unpack(dgram, false, ["broadcast"]);
             
-            distributedObjs[do_id] = obj;
+            DOManager.doID2do[do_id] = obj;
             
             console.log("-----");
             console.log("New object w/ location");
@@ -62,8 +67,13 @@ StateServer.prototype.handleDatagram = function(dgram) {
         {
             var doId = dgram.readUInt32();
             var field_id = dgram.readUInt16();
+
+            if(!DOManager.doID2do[doId]) {
+                console.log("DoID"+ doId+" doesn't exist");
+                return;
+            }
             
-            console.log(distributedObjs[doId].unpackField(dgram, field_id));
+            console.log(DOManager.doID2do[doId].unpackField(dgram, field_id));
         }
         break;
     case msgtypes.STATESERVER_OBJECT_DELETE_RAM:
@@ -73,9 +83,9 @@ StateServer.prototype.handleDatagram = function(dgram) {
             console.log(doId);
             
             console.log("SS object deleted: ");
-            console.log(distributedObjs[doId]);
+            console.log(DOManager.doID2do[doId]);
             
-            distributedObjs[doId] = null;
+            DOManager.doID2do[doId] = null;
         }
         break;
     default:

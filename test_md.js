@@ -13,7 +13,11 @@ MD.connect(function() {
     MD.setName("test_md.js");
    //MD.addChannel(402000, SS);
     
-    MD.addChannel( common.zoneParentToChannel(0, 10000) , SS);
-    SS.getZonesObjects(MD, 1234, 1337, 10000, 0);
+   // MD.addChannel( common.zoneParentToChannel(0, 10000) , SS);
+    //SS.getZonesObjects(MD, 1234, 1337, 10000, 0);
+    
+    var LoginManager = new StateServer(1234);
+    MD.addChannel(LoginManager.channel, LoginManager);
+    LoginManager.reflectCreate("LoginManager", -1);
     
 });

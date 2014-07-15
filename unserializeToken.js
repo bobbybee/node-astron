@@ -3,6 +3,8 @@ var DCFile = require("./DCFile");
 function unserializeToken(in_p, type){
     type = type.trim();
     
+    if(type.split(" ").length == 2) type = type.split(" ")[0];
+    
     if(type[type.length-1] == ']') { // arrays have there own little implementation
         // array type
         var dynArray = type[type.length-2] == '[';
@@ -45,7 +47,7 @@ function unserializeToken(in_p, type){
     var t = null;
     
     type = type.trim();
-    
+        
          if(type == 'string')   return in_p.readString();
     else if(type == 'blob')     return in_p.readBlob();
     
@@ -66,7 +68,7 @@ function unserializeToken(in_p, type){
     else if(type == 'int8array') return in_p.readInt8Array();
     else if(type == 'int16array') return in_p.readInt16Array();
     else if(type == 'int32array') return in_p.readInt32Array();
-    
+        
     else if(type == 'uint32uint8array') return in_p.readUInt32UInt8Array();
     
    // else if(DCFile.classLookup[type]) val.serialize(out); // serialize the other class instead ;)
