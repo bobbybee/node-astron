@@ -50,6 +50,8 @@ OutPacket.prototype.writeClientHeader = function(msgtype){ this.writeUInt16(msgt
 OutPacket.prototype.writeMDHeader = function(recipients, msgtype, sender){
 	if(!Array.isArray(recipients)) recipients = [recipients];
     
+    console.log(recipients);
+    
     this.writeUInt8(recipients.length);
 	var i = 0;
 	while(i < recipients.length){

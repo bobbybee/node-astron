@@ -8,13 +8,15 @@ var DCFile = require("./DCFile");
 
 var DOManager = require("./DOManager");
 
-function StateServer(channel) {
+function StateServer(channel, class_t) {
     this.channel = channel;
+    this.class_t = class_t;
 }
 
-StateServer.prototype.reflectCreate = function(class_t, zone) {
-    var obj = new DistributedClass(class_t, zone);
+StateServer.prototype.reflectCreate = function(zone) {
+    var obj = new DistributedClass(this.class_t, zone, this.channel, this);
     DOManager.doID2do[this.channel] = obj;
+    this.do = obj;
 }
 
 StateServer.prototype.handleDatagram = function(dgram) {
@@ -27,7 +29,7 @@ StateServer.prototype.handleDatagram = function(dgram) {
             var zone_id = dgram.readUInt32();
             var dclass_id = dgram.readUInt16();
             
-            var obj = new DistributedClass(DCFile.DCFile[dclass_id][1],zone_id);
+            var obj = new DistributedClass(DCFile.DCFile[dclass_id][1],zone_id, do_id, this);
             obj.unpack(dgram, false);
             
             DOManager.doID2do[do_id] = obj;
@@ -48,7 +50,7 @@ StateServer.prototype.handleDatagram = function(dgram) {
             var zone_id = dgram.readUInt32();
             var dclass_id = dgram.readUInt16();
             
-            var obj = new DistributedClass(DCFile.DCFile[dclass_id][1],zone_id);
+            var obj = new DistributedClass(DCFile.DCFile[dclass_id][1],zone_id, do_id, this);
             obj.unpack(dgram, false, ["broadcast"]);
             
             DOManager.doID2do[do_id] = obj;
@@ -72,8 +74,10 @@ StateServer.prototype.handleDatagram = function(dgram) {
                 console.log("DoID"+ doId+" doesn't exist");
                 return;
             }
+                        
+            var req = DOManager.doID2do[doId].unpackField(dgram, field_id);
             
-            console.log(DOManager.doID2do[doId].unpackField(dgram, field_id));
+            this.do.call(req.name, req.value, dgram);
         }
         break;
     case msgtypes.STATESERVER_OBJECT_DELETE_RAM:
@@ -93,6 +97,45 @@ StateServer.prototype.handleDatagram = function(dgram) {
     console.log("Unknown dgram:");
     console.log(dgram.buf);
     }
+}
+
+StateServer.prototype.createObject = function(md, sender, new_do, parentID, zone, optionals) {
+    if(!optionals) optionals = [];
+    
+    var packet = new OutPacket();
+    packet.writeMDHeader(this.channel, 
+        
+        optionals.length ? STATESERVER_CREATE_OBJECT_WITH_REQUIRED_OTHER
+        : msgtypes.STATESERVER_CREATE_OBJECT_WITH_REQUIRED,
+    
+        sender);
+    
+    packet.writeUInt32(new_do.doID);
+    packet.writeUInt32(parentID);
+    packet.writeUInt32(zone);
+    packet.writeUInt16(DCFile.classLookup[new_do.class_t]);
+    
+    new_do.pack(packet, optionals);
+    md.write(packet);
+}
+
+StateServer.prototype.sendUpdate = function(md, sender, recipients, field) {
+    var field_id = DCFile.reverseFieldLookup[this.class_t+"::"+field];
+    
+    if(!field_id) {
+        console.log("Unknown field update for "+this.class_t+"::"+field);
+        return;
+    }
+        
+    var packet = new OutPacket();
+    packet.writeMDHeader(recipients, msgtypes.STATESERVER_OBJECT_SET_FIELD, sender);
+    packet.writeUInt32(this.channel);
+    packet.writeUInt16(field_id);
+    
+    var args = Array.prototype.slice.call(arguments, 4); // js voodoo
+    this.do.packField(packet, field_id, args);
+       
+    md.write(packet);
 }
 
 StateServer.prototype.getZonesObjects = function(md, sender, context, parent, zones) {

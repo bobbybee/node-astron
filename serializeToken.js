@@ -45,6 +45,7 @@ function serializeToken(out, type, val){
         type = type.split('/')[0].split('%')[0];
     }
     
+    type = type.trim();
     
          if(type == 'string')   out.writeString(val);
     else if(type == 'blob')     out.writeBlob(val);

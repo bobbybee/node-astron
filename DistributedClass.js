@@ -3,13 +3,16 @@ var unserializeToken = require("./unserializeToken");
 
 var DCFile = require("./DCFile");
 
+var aiClasses = {};
 
-function DistributedClass(class_t, zone){
+function DistributedClass(class_t, zone, doID, ss){
     this.class_t = class_t;
     this.zone = zone;
     
-    this.class = DCFile.DCFile[DCFile.classLookup[this.class_t]];
+    this.ss = ss;
     
+    this.class = DCFile.DCFile[DCFile.classLookup[this.class_t]];
+        
     this.requiredFields = [];
     this.fieldIndex = {};
     var i = 0;
@@ -22,6 +25,10 @@ function DistributedClass(class_t, zone){
          
          ++i;
      }
+     
+     this.doID = doID;
+     
+     //TODO: inheritance
     
     this.properties = {}; // properties inited by required..
 }
@@ -148,5 +155,61 @@ DistributedClass.prototype.unpackField = function(in_t, field_id) {
     }
 }
 
+DistributedClass.prototype.pack = function(out_t, properties, requiredFields) {
+    if(!requiredFields) requiredFields = [];
+    var attrs = this.class[2];
+    
+    nextField: for(var r = 0; r < attrs.length; ++r) {
+        if(attrs[r][2].indexOf('required') > -1) {
+            for(var f = 0; f < requiredFields.length; ++f) {
+                if(attrs[r][2].indexOf(requiredFields[f]) == -1) continue nextField;
+            }
+                        
+            console.log(attrs[r]);            
+                        
+            for(var a = 0; a < attrs[r][3].length; ++a) {
+                serializeToken(out_t, attrs[r][3][a], this.properties[attrs[r][1]] ? this.properties[attrs[r][1]][a]
+                                                                                    : 0);
+            }
+        }
+    }
+    
+    if(!properties) return;
+
+    out_t.writeUInt16(properties.length);
+        
+    for(var i = 0; i < properties.length; ++i) {
+        var field_id = DCFile.reverseFieldLookup(this.class_t+"::"+properties[i]);
+        
+        out_t.writeUInt16(field_id);
+       this.packField(out_t, field_id, this.properties[properties[i]]);
+    }
+}
+
+DistributedClass.prototype.packField = function(out_t, field_id, args) {
+    var field = DCFile.fieldLookup[field_id];
+        
+    for(var a = 0; a < field[4].length; ++a) {
+        serializeToken(out_t, field[4][a], args[a]);
+    } 
+    
+    this.properties[field[2]] = args;
+}
+
+DistributedClass.prototype.callOfClass = function(class_n, fieldName, value, dgram) {
+    if(aiClasses[class_n])
+        if(aiClasses[class_n][fieldName])
+            aiClasses[class_n][fieldName].apply({
+                dclass: this,
+                dgram: dgram
+            }, value);
+}
+
+DistributedClass.prototype.call = function(fieldName, value, dgram) {
+    this.callOfClass(this.class_t, fieldName, value, dgram); // TODO: inheritance
+}
 
 module.exports = DistributedClass;
+module.exports.handleClassAI = function(class_n, ai) {
+    aiClasses[class_n] = ai;
+}
