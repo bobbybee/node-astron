@@ -138,7 +138,7 @@ DistributedClass.prototype.unpack = function(in_t, optionalsEnabled, requiredFie
     }
 }
 
-DistributedClass.prototype.unpackField = function(in_t, field_id) {    
+DistributedClass.prototype.unpackField = function(in_t, field_id, disableThis) {    
     var field = DCFile.fieldLookup[field_id];
 
     var ps = [];
@@ -147,7 +147,7 @@ DistributedClass.prototype.unpackField = function(in_t, field_id) {
         ps.push(unserializeToken(in_t, field[4][a]));
     } 
     
-    this.properties[field[2]] = ps;
+    if(!disableThis) this.properties[field[2]] = ps;
     
     return {
         name: field[2],
@@ -186,14 +186,14 @@ DistributedClass.prototype.pack = function(out_t, properties, requiredFields) {
     }
 }
 
-DistributedClass.prototype.packField = function(out_t, field_id, args) {
+DistributedClass.prototype.packField = function(out_t, field_id, args, disableThis) {
     var field = DCFile.fieldLookup[field_id];
         
     for(var a = 0; a < field[4].length; ++a) {
         serializeToken(out_t, field[4][a], args[a]);
     } 
     
-    this.properties[field[2]] = args;
+    if(!disableThis) this.properties[field[2]] = args;
 }
 
 DistributedClass.prototype.callOfClass = function(class_n, fieldName, value, dgram) {
