@@ -33,9 +33,9 @@ client.on('data', function(d) {
 	} else if(dgram.msgType == msgtypes.CLIENT_ENTER_OBJECT_REQUIRED_OTHER) {
 		henterObject(dgram,true, false);
 	} else if(dgram.msgType == msgtypes.CLIENT_ENTER_OBJECT_REQUIRED_OWNER) {
-		henterObject(dgram,false, false);
+		henterObject(dgram,false, true);
 	} else if(dgram.msgType == msgtypes.CLIENT_ENTER_OBJECT_REQUIRED_OTHER_OWNER) {
-		henterObject(dgram,true, false);
+		henterObject(dgram,true, true);
 	} else if(dgram.msgType == msgtypes.CLIENT_OBJECT_SET_FIELD) {
 		hsetFields(dgram,false);
 	} else if(dgram.msgType == msgtypes.CLIENT_OBJECT_SET_FIELDS) {
@@ -189,6 +189,9 @@ function ssetField(msg) {
 
 	for(var i = 0; i < msg.fields.length; ++i) {
 		var field_id = DCFile.reverseFieldLookup[msg.class+"::"+msg.fields[i].name];
+		
+		console.log(msg.class+"::"+msg.fields[i].name);
+		console.log(field_id);
 		
 		dgram.writeUInt16(field_id);
 		DistributedClass.prototype.packField(dgram, field_id, msg.fields[i].value, true);
