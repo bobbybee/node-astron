@@ -1,4 +1,5 @@
 var net = require('net');
+var WebSocketServer = require("websocket").server;
 
 var Packet = require("./Packet").Packet;
 var OutPacket = require("./Packet").OutPacket;
@@ -7,23 +8,36 @@ var msgtypes = require("./msgtypes");
 var DCFile = require("./DCFile");
 var DistributedClass = require("./DistributedClass");
 
-var client = net.connect({
-	host: 'localhost',
-	port: 6667
+var client = net.createConnection(6667, "localhost", function() {
+	client.on('data', function(d) {
+		console.log("Data");
+	
+		onData(new Packet(d));
+	});
+
+	client.on('close', function() {
+		console.log("Socket closed unexpectedly!");
+	});
+
+	client.on('error', function(e) {
+		console.log("Error:");
+		console.log(e);
+	})
+	
+	client.resume();
 });
 
-client.on('data', function(d) {
-	var dgram = new Packet(d);
+function onData(dgram) {
 	dgram.readClientHeader();
 	
 	console.log(dgram);
 	
 	if(dgram.msgType == msgtypes.CLIENT_HELLO_RESP) {
-		ws.send( JSON.stringify({
+		ws.sendUTF( JSON.stringify({
 			type: "helloResp"
 		}));
 	} else if(dgram.msgType == msgtypes.CLIENT_EJECT) {
-		ws.send( JSON.stringify({
+		ws.sendUTF( JSON.stringify({
 			type: "eject",
 			error_code: dgram.readUInt16(),
 			reason: dgram.readString()
@@ -41,12 +55,12 @@ client.on('data', function(d) {
 	} else if(dgram.msgType == msgtypes.CLIENT_OBJECT_SET_FIELDS) {
 		hsetFields(dgram,true);
 	} else if(dgram.msgType == msgtypes.CLIENT_OBJECT_LEAVING) {
-		ws.send( JSON.stringify({
+		ws.sendUTF( JSON.stringify({
 			type: "leave",
 			doID: dgram.readUInt32()
 		}))
 	} else if(dgram.msgType == msgtypes.CLIENT_OBJECT_LOCATION) {
-		ws.send( JSON.stringify({
+		ws.sendUTF( JSON.stringify({
 			type: "location",
 			doID: dgram.readUInt32(),
 			parentID: dgram.readUInt32(),
@@ -57,13 +71,28 @@ client.on('data', function(d) {
 	} else if(dgram.msgType == msgtypes.CLIENT_ADD_INTEREST_MULTIPLE) {
 		haddInterest(dgram, true);
 	} else if(dgram.msgType == msgtypes.CLIENT_DONE_INTEREST_RESP) {
-		ws.send( JSON.stringify({
+		ws.sendUTF( JSON.stringify({
 			type: "interestDone",
 			context: dgram.readUInt32(),
 			interestID: dgram.readUInt16()
 		}));
+	} else {
+		console.log("Unknown type "+dgram.msgtype);
 	}
-});
+	
+	console.log("EOD");
+	
+	if( (dgram.offset - 2) < dgram.length) {
+		console.log("More");
+		dgram.length = this.readUInt16();
+		dgram.buf = dgram.buf.slice(dgram.offset + 2);
+		dgram.offset = 0;
+		onData(dgram); // more to come!
+	}
+	
+}
+
+
 
 function henterObject(dgram, optionals, owner) {
     var do_id = dgram.readUInt32();
@@ -74,7 +103,9 @@ function henterObject(dgram, optionals, owner) {
     var obj = new DistributedClass(DCFile.DCFile[dclass_id][1],zone_id, do_id, this);
     obj.unpack(dgram, optionals, ["broadcast"]);
     
-	ws.send(JSON.stringify({
+	console.log(DCFile.DCFile[dclass_id][1]+" "+(owner ? "mine" : "theirs"));
+	
+	ws.sendUTF(JSON.stringify({
 		type: "enterObject",
 		optionals: optionals,
 		owner: owner, 
@@ -84,13 +115,15 @@ function henterObject(dgram, optionals, owner) {
 		dclass: DCFile.DCFile[dclass_id][1],
 		properties: obj.properties
 	}));
+	
+	console.log("Ping!");
 }
 
 function hsetFields(dgram, multiple) {
 	var do_id = dgram.readUInt32();
 	var num = 1;
 	if(multiple) {
-		var num = dgram.readUInt16();
+		num = dgram.readUInt16();
 	}
 	
 	var fields = [];
@@ -99,7 +132,7 @@ function hsetFields(dgram, multiple) {
 		fields.push(DistributedClass.prototype.unpackField(dgram, dgram.readUInt16(), true));
 	}
 	
-	ws.send(JSON.stringify({
+	ws.sendUTF(JSON.stringify({
 		type: "set",
 		doID: do_id,
 		fields: fields
@@ -121,32 +154,36 @@ function haddInterest(dgram, multiple) {
 		zones.push(dgram.readUInt32());
 	}
 	
-	ws.send(JSON.stringify({
+	ws.sendUTF(JSON.stringify({
 		type: "addInterest",
 		context: context,
 		interestID: interestID,
 		parentID: parentID,
 		zones: zones
 	}));
+	
+	console.log("sent");
 }
 
 var ws = null;
 
-var WebSocketServer = require("ws").Server,
-	wss = new WebSocketServer({port: 8080});
+var wss = new WebSocketServer({httpServer: require("http").createServer(function(){}).listen(8080)});
 	
-wss.on('connection', function(w) {
-	ws = w;
+wss.on('request', function(w) {
+	ws = w.accept(null, w.origin);
+	
+	console.log("Request accepted");
 	
 	ws.on('message', function(d) {
-		//try {
-			var msg = JSON.parse(d.toString());
+			console.log("MSG RECEIVE");
+			
+			var msg = JSON.parse(d.utf8Data.toString());
 			
 			dgram = new OutPacket();
 			
 			console.log(msg);
 			
-			if(msg.type == 'hello') {
+			if(msg.type == 'hello') {				
 				dgram.writeClientHeader(msgtypes.CLIENT_HELLO);
 				dgram.writeUInt32(msg.dcHash);
 				dgram.writeString(msg.version);
@@ -174,9 +211,12 @@ wss.on('connection', function(w) {
 			console.log(dgram);
 			
 			client.write(dgram.serialize());
-			//} catch(e) {
-			//console.log(e);
-			//}
+	});
+	
+	ws.on('end', function() {
+		var dc = new OutPacket()
+		dc.writeClientHeader(msgtypes.CLIENT_DISCONNECT);
+		client.write(dgram.serialize());
 	});
 });
 
