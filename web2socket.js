@@ -31,6 +31,7 @@ function onData(dgram) {
 	dgram.readClientHeader();
 	
 	console.log(dgram);
+	console.log(dgram.length == dgram.buf.length-2);
 	
 	if(dgram.msgType == msgtypes.CLIENT_HELLO_RESP) {
 		ws.sendUTF( JSON.stringify({
@@ -82,9 +83,15 @@ function onData(dgram) {
 	
 	console.log("EOD");
 	
-	if( (dgram.offset - 2) < dgram.length) {
-		console.log("More");
-		dgram.length = this.readUInt16();
+	if( dgram.offset  < dgram.buf.length-2) {
+		console.log("More ");
+		console.log(dgram);
+		
+		dgram.length = dgram.buf.readUInt16LE(dgram.offset);
+		
+		console.log(dgram.offset - 4);
+		console.log(dgram.buf.length);
+		
 		dgram.buf = dgram.buf.slice(dgram.offset + 2);
 		dgram.offset = 0;
 		onData(dgram); // more to come!
