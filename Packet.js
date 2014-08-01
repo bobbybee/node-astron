@@ -45,6 +45,7 @@ OutPacket.prototype.writeInt32 = function(b){ this.writeUInt32(b); };
 OutPacket.prototype.writeInt64 = function(b){ this.writeUInt64(b); };
 OutPacket.prototype.writeBlob = function(b,l){ var i = 0; while(i < l){ this.buf.push(b[i].charCodeAt(0)); ++i; }; };
 OutPacket.prototype.writeString = function(str){ this.writeUInt16(str.length); this.writeBlob(str,str.length);};
+OutPacket.prototype.writeArray = function(arr){ this.writeUInt16(arr.length); for(var i = 0; i < arr.length; ++i){ this.writeUInt8(arr[i])}};
 
 OutPacket.prototype.writeClientHeader = function(msgtype){ console.log(msgtype); this.writeUInt16(msgtype); };
 OutPacket.prototype.writeMDHeader = function(recipients, msgtype, sender){
